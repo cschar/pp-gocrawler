@@ -6,7 +6,10 @@ import (
 	"html/template"
 	"encoding/xml"
 	"io/ioutil"
+	"sync"
 )
+
+var wg sync.WaitGroup
 
 type NewsMap struct {
 	Keyword string
@@ -34,34 +37,52 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<h1>Whoa, Go is neat!</h1>")
 }
 
+func newsRoutine(c chan News, Location string){
+    defer wg.Done()
+
+    var n News
+    resp, _ := http.Get(Location)
+    bytes, _ := ioutil.ReadAll(resp.Body)
+    xml.Unmarshal(bytes, &n)
+    resp.Body.Close()
+
+    c <- n
+}
 
 
 func newsAggHandler(w http.ResponseWriter, r *http.Request) {
 	var s Sitemapindex
-	var n News
+
 	resp, _ := http.Get("https://www.washingtonpost.com/news-sitemap-index.xml")
 	bytes, _ := ioutil.ReadAll(resp.Body)
 	xml.Unmarshal(bytes, &s)
 	news_map := make(map[string]NewsMap)
-
+    resp.Body.Close()
+    queue := make(chan News, 30)
 	dups := 0
 
 	for _, Location := range s.Locations {
-		resp, _ := http.Get(Location)
-		bytes, _ := ioutil.ReadAll(resp.Body)
-		xml.Unmarshal(bytes, &n)
+        wg.Add(1)
+        go newsRoutine(queue, Location)
+    }
 
-		for idx, _ := range n.Keywords {
-			if _, ok := news_map[n.Titles[idx]]; ok {
+    wg.Wait()
+    close(queue)
+
+    //elem is News type
+    for elem := range queue {
+		for idx, _ := range elem.Keywords {
+			if _, ok := news_map[elem.Titles[idx]]; ok {
 				dups += 1
 			}
-			news_map[n.Titles[idx]] = NewsMap{n.Keywords[idx], n.Locations[idx]}
+			news_map[elem.Titles[idx]] = NewsMap{elem.Keywords[idx], elem.Locations[idx]}
 		}
-		fmt.Printf("SiteIndex Location %s\n", Location)
-		fmt.Println("keywords", len(n.Keywords))
-		fmt.Println("titles", len(n.Titles))
-		fmt.Println("locations", len(n.Locations))
+
+		fmt.Println("keywords", len(elem.Keywords))
+		fmt.Println("titles", len(elem.Titles))
+		fmt.Println("locations", len(elem.Locations))
 	}
+
 	fmt.Println("After crawling, map had duplicates:", dups)
 	fmt.Println("Map size is", len(news_map))
 
