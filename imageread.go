@@ -20,6 +20,10 @@ import (
     "image/color"
     //"bytes"
     "strconv"
+    //"github.com/boltdb/bolt"
+    _ "github.com/mattn/go-sqlite3"
+
+    "database/sql"
 )
 
 
@@ -56,56 +60,152 @@ func getImage(imageName string) image.Image{
     fmt.Println("bounds of opened image", m.Bounds())
     return m
 }
-//
-//
-//func getAVGRGBregions(m image.Image, xs, ys int) [][][]uint32{
-//
-//    const xsplits = xs
-//    const ysplits = ys
-//
-//    bounds := m.Bounds()
-//    var rgbsumregions [ysplits][xsplits][3]uint32
-//    var avgregions [xsplits][ysplits][3]float32
-//
-//    yregionsize := bounds.Max.Y / ysplits
-//    xregionsize := bounds.Max.X / xsplits
-//    fmt.Printf("%d %d is xy region sizes", xregionsize, yregionsize)
-//
-//    for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-//		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-//			r, g, b, _ := m.At(x, y).RGBA()
-//            r = r>>8
-//            g = g>>8
-//            b = b>>8
-//            yregionbucket := y / yregionsize
-//            xregionbucket := x / xregionsize
-//            rgbsumregions[yregionbucket][xregionbucket][0] += r
-//            rgbsumregions[yregionbucket][xregionbucket][1] += g
-//            rgbsumregions[yregionbucket][xregionbucket][2] += b
-//		}
-//    }
-//
-//    //Compute rgb average of each x,y bucket
-//    for i:=0; i< ysplits; i++{
-//        for j:=0; j<xsplits; j++ {
-//            for k := 0; k < 3; k++ {
-//                //d := float32(255.0 * yregionsize * xregionsize)
-//                d := float32(yregionsize * xregionsize)
-//                avgregions[i][j][k] = float32(rgbsumregions[i][j][k]) / d
-//            }
-//        }
-//    }
-//    return avgregions
-//}
 
-func main() {
-	// Decode the JPEG data. If reading from file, create a reader with
-	//
-    //reader, err := os.Open("eyemazestyle.jpg")
+
+func main(){
+
+    imageName := "snowmandala"
+
+
+    db, err := sql.Open("sqlite3", "./imagedata.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+    //id integer not null primary key,
+    sqlStmt := `
+	create table rgbavg (
+	  imageName text, dim int, x int, y int, r int, g int, b int);
+	delete from foo;
+	`
+	_, err = db.Exec(sqlStmt)
+	if err != nil {
+		log.Printf("%q: %s\n", err, sqlStmt)
+	}
+
+    m := getImage(imageName+".jpg")
+    bounds := m.Bounds()
+
+
+    //xsplits := 20
+    //ysplits := 20
+
+    const xsplits = 4
+    const ysplits = 4
+    //const xsplits = 10
+    //const ysplits = 10
+
+    yregionsize := bounds.Max.Y / ysplits
+    xregionsize := bounds.Max.X / xsplits
+
+    //make a 3D slice
+    var rgbsumregions = make([][][]uint32, xsplits)
+    for i:=0;i<xsplits;i++{
+        rgbsumregions[i] = make([][]uint32, ysplits)
+        for j:=0;j<ysplits;j++{
+            rgbsumregions[i][j] = make([]uint32, 3)
+        }
+    }
+
+    //var rgbsumregions [ysplits][xsplits][3]uint32
+    avgregions := make([][][]float32, xsplits)
+    for i:=0;i<xsplits;i++{
+        avgregions[i] = make([][]float32, ysplits)
+        for j:=0;j<ysplits;j++{
+            avgregions[i][j] = make([]float32, 3)
+        }
+    }
+
+    fmt.Printf("Region Splits: %dx%d %dx%d\n",
+        xregionsize, yregionsize, xsplits, ysplits)
+
+    for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, g, b, _ := m.At(x, y).RGBA()
+            r = r>>8
+            g = g>>8
+            b = b>>8
+            yregionbucket := y / yregionsize
+            xregionbucket := x / xregionsize
+            rgbsumregions[yregionbucket][xregionbucket][0] += r
+            rgbsumregions[yregionbucket][xregionbucket][1] += g
+            rgbsumregions[yregionbucket][xregionbucket][2] += b
+		}
+    }
+
+    //Compute rgb average of each x,y bucket
+    for i:=0; i< xsplits; i++{
+        for j:=0; j<ysplits; j++ {
+            for k := 0; k < 3; k++ {
+                //d := float32(255.0 * yregionsize * xregionsize)
+                d := float32(xregionsize * yregionsize)
+                avgregions[i][j][k] = float32(rgbsumregions[i][j][k]) / d
+            }
+        }
+    }
+
+    //save rgb avg for each x,y bucket
+    fmt.Println("saving avgs to db")
+    tx, err := db.Begin();
+    if err != nil {
+        log.Fatal(err)
+    }
+    //
+    stmt, err := tx.Prepare("insert into" +
+        " rgbavg(imageName, dim, x,y,r,g,b)" +
+        " values(?,          ?,   ?,?,?,?,?)")
+    if err != nil {log.Fatal(err)}
+    defer stmt.Close()
+
+    //index := 1
+    for i:=0; i< xsplits; i++{
+        for j:=0; j<ysplits; j++ {
+
+                name := fmt.Sprintf("%s-%d-%d", imageName,i,j)
+                _, err = stmt.Exec(name, xregionsize, i,j,
+                    int(avgregions[i][j][0]),
+                    int(avgregions[i][j][1]),
+                    int(avgregions[i][j][2]))
+
+                if err != nil {
+                    log.Fatal(err)
+                }
+
+
+        }
+    }
+
+	tx.Commit()
+
+
+    for y :=0; y < ysplits; y++{
+        for x := 0; x <xsplits; x++{
+
+            b := image.Rect(0,0, xregionsize, yregionsize)
+            rectPoint := image.Pt(x*xregionsize,y*yregionsize)
+            b = b.Add(rectPoint)
+
+            myImage := CloneRectToRGBA(m, b, rectPoint)
+
+            dimensions := strconv.Itoa(xsplits) + "x" + strconv.Itoa(ysplits)
+            region := strconv.Itoa(x) + "-"+ strconv.Itoa(y)
+            fileName := "images/"+ dimensions + "-" + region + ".png"
+
+            outputFile, err := os.Create(fileName)
+            if err != nil {
+                // Handle error
+            }
+            png.Encode(outputFile, myImage)
+            outputFile.Close()
+        }
+
+    }
+}
+
+
+func sliceAndSave(){
     m := getImage("snowmandala.jpg")
     bounds := m.Bounds()
-    //myImage := CloneToRGBA(m)
-
 
     const xsplits = 20
     const ysplits = 20
@@ -180,7 +280,9 @@ func main() {
             //dst := image.NewRGBA(b)
             //draw.Draw(myImage, b, m, b.Min, draw.Src)
             //return dst
-            fileName := "images/"+ strconv.Itoa(x) + "-"+ strconv.Itoa(y) + ".png"
+            dimensions := strconv.Itoa(xregionsize) + "x" + strconv.Itoa(yregionsize)
+            region := strconv.Itoa(x) + "-"+ strconv.Itoa(y)
+            fileName := "images/"+ dimensions + "-" + region + ".png"
 
             fmt.Println(fileName)
 
