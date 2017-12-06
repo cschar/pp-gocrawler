@@ -18,7 +18,7 @@ import (
     //"image/color"
     "image/draw"
     "image/color"
-    "bytes"
+    //"bytes"
     "strconv"
 )
 
@@ -36,22 +36,172 @@ func CloneToRGBA(src image.Image) draw.Image {
 	return dst
 }
 
-func main() {
-	// Decode the JPEG data. If reading from file, create a reader with
-	//
-    //reader, err := os.Open("eyemazestyle.jpg")
+func CloneRectToRGBA(src image.Image, rect image.Rectangle, rectPoint image.Point) draw.Image{
+    dst := image.NewRGBA(rect)
+    draw.Draw(dst, rect, src, rect.Min, draw.Src)
+    return dst
+}
+
+
+func getImage(imageName string) image.Image{
     reader, err := os.Open("snowmandala.jpg")
     if err != nil {
         log.Fatal(err)
     }
-
     defer reader.Close()
     m, _, err := image.Decode(reader)
     if err != nil {
         log.Fatal(err)
     }
-
     fmt.Println("bounds of opened image", m.Bounds())
+    return m
+}
+//
+//
+//func getAVGRGBregions(m image.Image, xs, ys int) [][][]uint32{
+//
+//    const xsplits = xs
+//    const ysplits = ys
+//
+//    bounds := m.Bounds()
+//    var rgbsumregions [ysplits][xsplits][3]uint32
+//    var avgregions [xsplits][ysplits][3]float32
+//
+//    yregionsize := bounds.Max.Y / ysplits
+//    xregionsize := bounds.Max.X / xsplits
+//    fmt.Printf("%d %d is xy region sizes", xregionsize, yregionsize)
+//
+//    for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+//		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+//			r, g, b, _ := m.At(x, y).RGBA()
+//            r = r>>8
+//            g = g>>8
+//            b = b>>8
+//            yregionbucket := y / yregionsize
+//            xregionbucket := x / xregionsize
+//            rgbsumregions[yregionbucket][xregionbucket][0] += r
+//            rgbsumregions[yregionbucket][xregionbucket][1] += g
+//            rgbsumregions[yregionbucket][xregionbucket][2] += b
+//		}
+//    }
+//
+//    //Compute rgb average of each x,y bucket
+//    for i:=0; i< ysplits; i++{
+//        for j:=0; j<xsplits; j++ {
+//            for k := 0; k < 3; k++ {
+//                //d := float32(255.0 * yregionsize * xregionsize)
+//                d := float32(yregionsize * xregionsize)
+//                avgregions[i][j][k] = float32(rgbsumregions[i][j][k]) / d
+//            }
+//        }
+//    }
+//    return avgregions
+//}
+
+func main() {
+	// Decode the JPEG data. If reading from file, create a reader with
+	//
+    //reader, err := os.Open("eyemazestyle.jpg")
+    m := getImage("snowmandala.jpg")
+    bounds := m.Bounds()
+    //myImage := CloneToRGBA(m)
+
+
+    const xsplits = 20
+    const ysplits = 20
+
+    //const xsplits = 4
+    //const ysplits = 4
+    //const xsplits = 10
+    //const ysplits = 10
+
+    yregionsize := bounds.Max.Y / ysplits
+    xregionsize := bounds.Max.X / xsplits
+
+    //make a 3D slice
+    var rgbsumregions = make([][][]uint32, xsplits)
+    for i:=0;i<xsplits;i++{
+        rgbsumregions[i] = make([][]uint32, ysplits)
+        for j:=0;j<ysplits;j++{
+            rgbsumregions[i][j] = make([]uint32, 3)
+        }
+    }
+
+    //var rgbsumregions [ysplits][xsplits][3]uint32
+    avgregions := make([][][]float32, xsplits)
+    for i:=0;i<xsplits;i++{
+        avgregions[i] = make([][]float32, ysplits)
+        for j:=0;j<ysplits;j++{
+            avgregions[i][j] = make([]float32, 3)
+        }
+    }
+
+    fmt.Printf("Region Splits: %dx%d %dx%d", xregionsize, yregionsize, xsplits, ysplits)
+
+    for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, g, b, _ := m.At(x, y).RGBA()
+            r = r>>8
+            g = g>>8
+            b = b>>8
+            yregionbucket := y / yregionsize
+            xregionbucket := x / xregionsize
+            rgbsumregions[yregionbucket][xregionbucket][0] += r
+            rgbsumregions[yregionbucket][xregionbucket][1] += g
+            rgbsumregions[yregionbucket][xregionbucket][2] += b
+		}
+    }
+
+    //Compute rgb average of each x,y bucket
+    for i:=0; i< ysplits; i++{
+        for j:=0; j<xsplits; j++ {
+            for k := 0; k < 3; k++ {
+                //d := float32(255.0 * yregionsize * xregionsize)
+                d := float32(yregionsize * xregionsize)
+                avgregions[i][j][k] = float32(rgbsumregions[i][j][k]) / d
+            }
+        }
+    }
+
+
+    fmt.Println(bounds)
+    for y :=0; y < ysplits; y++{
+        for x := 0; x <xsplits; x++{
+            //myImage := image.NewRGBA(image.Rect(0, 0, xregionsize, yregionsize))
+
+            b := image.Rect(0,0,
+                xregionsize, yregionsize)
+
+
+            rectPoint := image.Pt(x*xregionsize,y*yregionsize)
+            b = b.Add(rectPoint)
+            fmt.Println(b)
+
+            //dst := image.NewRGBA(b)
+            //draw.Draw(myImage, b, m, b.Min, draw.Src)
+            //return dst
+            fileName := "images/"+ strconv.Itoa(x) + "-"+ strconv.Itoa(y) + ".png"
+
+            fmt.Println(fileName)
+
+            myImage := CloneRectToRGBA(m, b, rectPoint)
+            outputFile, err := os.Create(fileName)
+            if err != nil {
+                // Handle error
+            }
+            png.Encode(outputFile, myImage)
+            // Don't forget to close files
+            outputFile.Close()
+        }
+
+    }
+}
+
+func LowerResolution() {
+	// Decode the JPEG data. If reading from file, create a reader with
+	//
+    //reader, err := os.Open("eyemazestyle.jpg")
+    m := getImage("snowmandala.jpg")
     bounds := m.Bounds()
     myImage := CloneToRGBA(m)
 
@@ -88,6 +238,7 @@ func main() {
 		}
     }
 
+    //Compute rgb average of each x,y bucket
     var avgregions [xsplits][ysplits][3]float32
     for i:=0; i< ysplits; i++{
         for j:=0; j<xsplits; j++ {
@@ -99,20 +250,22 @@ func main() {
         }
     }
 
-    fmt.Println("sumregion [0][0]")
-    var buffer bytes.Buffer;
-    for j :=0; j < ysplits; j++{
-        for i := 0; i<xsplits; i++{
-            s := strconv.FormatFloat(float64(avgregions[j][i][0]), 'f',-1,32)
-            buffer.WriteString( s + ", ")
-            //fmt.Printf("%f\n", avgregions[j][0][0])
-        }
-        fmt.Println(buffer.String())
-        buffer.Reset()
-    }
+    //Print results
+    //fmt.Println("sumregion [0][0]")
+    //var buffer bytes.Buffer;
+    //for j :=0; j < ysplits; j++{
+    //    for i := 0; i<xsplits; i++{
+    //        s := strconv.FormatFloat(float64(avgregions[j][i][0]), 'f',-1,32)
+    //        buffer.WriteString( s + ", ")
+    //        //fmt.Printf("%f\n", avgregions[j][0][0])
+    //    }
+    //    fmt.Println(buffer.String())
+    //    buffer.Reset()
+    //}
 
 
 
+    //Use average to simplify input image
     for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			r, g, b, _ := m.At(x, y).RGBA()
@@ -145,7 +298,6 @@ func main() {
     // Don't forget to close files
     outputFile.Close()
 }
-
 
 
 func getImageStats(){
