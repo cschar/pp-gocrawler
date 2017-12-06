@@ -24,6 +24,7 @@ import (
     _ "github.com/mattn/go-sqlite3"
 
     "database/sql"
+    "path/filepath"
 )
 
 
@@ -48,7 +49,7 @@ func CloneRectToRGBA(src image.Image, rect image.Rectangle, rectPoint image.Poin
 
 
 func getImage(imageName string) image.Image{
-    reader, err := os.Open("snowmandala.jpg")
+    reader, err := os.Open(imageName)
     if err != nil {
         log.Fatal(err)
     }
@@ -61,12 +62,14 @@ func getImage(imageName string) image.Image{
     return m
 }
 
-
 func main(){
 
-    imageName := "snowmandala"
+    //sliceAnalyzeSave("images/snowmandala.jpg")
+    sliceAnalyzeSave("images/eyemazestyle.jpg")
+}
 
-
+func sliceAnalyzeSave(imageName string){
+    m := getImage(imageName)
     db, err := sql.Open("sqlite3", "./imagedata.db")
 	if err != nil {
 		log.Fatal(err)
@@ -83,9 +86,6 @@ func main(){
 		log.Printf("%q: %s\n", err, sqlStmt)
 	}
 
-    m := getImage(imageName+".jpg")
-    bounds := m.Bounds()
-
 
     //xsplits := 20
     //ysplits := 20
@@ -95,6 +95,7 @@ func main(){
     //const xsplits = 10
     //const ysplits = 10
 
+    bounds := m.Bounds()
     yregionsize := bounds.Max.Y / ysplits
     xregionsize := bounds.Max.X / xsplits
 
@@ -189,11 +190,16 @@ func main(){
 
             dimensions := strconv.Itoa(xsplits) + "x" + strconv.Itoa(ysplits)
             region := strconv.Itoa(x) + "-"+ strconv.Itoa(y)
-            fileName := "images/"+ dimensions + "-" + region + ".png"
+            var extension = filepath.Ext(imageName)
+            var name = imageName[0:len(imageName)-len(extension)]
+
+            os.MkdirAll(name, os.ModePerm);
+            fileName := name+"/"+dimensions + "-" + region + ".png"
+            fmt.Println(fileName)
 
             outputFile, err := os.Create(fileName)
             if err != nil {
-                // Handle error
+                log.Fatal("cant save file")
             }
             png.Encode(outputFile, myImage)
             outputFile.Close()
@@ -204,7 +210,7 @@ func main(){
 
 
 func sliceAndSave(){
-    m := getImage("snowmandala.jpg")
+    m := getImage("images/snowmandala.jpg")
     bounds := m.Bounds()
 
     const xsplits = 20
@@ -303,7 +309,7 @@ func LowerResolution() {
 	// Decode the JPEG data. If reading from file, create a reader with
 	//
     //reader, err := os.Open("eyemazestyle.jpg")
-    m := getImage("snowmandala.jpg")
+    m := getImage("images/snowmandala.jpg")
     bounds := m.Bounds()
     myImage := CloneToRGBA(m)
 
@@ -404,7 +410,7 @@ func LowerResolution() {
 
 func getImageStats(){
     //reader, err := os.Open("eyemazestyle.jpg")
-    reader, err := os.Open("snowmandala.jpg")
+    reader, err := os.Open("images/snowmandala.jpg")
     if err != nil {
         log.Fatal(err)
     }
@@ -499,7 +505,7 @@ func drawRGBOnCopy() {
 	// Decode the JPEG data. If reading from file, create a reader with
 	//
     //reader, err := os.Open("eyemazestyle.jpg")
-    reader, err := os.Open("snowmandala.jpg")
+    reader, err := os.Open("images/snowmandala.jpg")
     if err != nil {
         log.Fatal(err)
     }
