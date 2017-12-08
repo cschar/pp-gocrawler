@@ -22,9 +22,12 @@ import (
     "strconv"
     //"github.com/boltdb/bolt"
     _ "github.com/mattn/go-sqlite3"
+    "github.com/nfnt/resize"
 
     "database/sql"
     "path/filepath"
+
+    "math"
 )
 
 
@@ -41,7 +44,7 @@ func CloneToRGBA(src image.Image) draw.Image {
 	return dst
 }
 
-func CloneRectToRGBA(src image.Image, rect image.Rectangle, rectPoint image.Point) draw.Image{
+func CloneRectToRGBA(src image.Image, rect image.Rectangle) draw.Image{
     dst := image.NewRGBA(rect)
     draw.Draw(dst, rect, src, rect.Min, draw.Src)
     return dst
@@ -62,14 +65,8 @@ func getImage(imageName string) image.Image{
     return m
 }
 
-func main(){
 
-    //sliceAnalyzeSave("images/snowmandala.jpg")
-    sliceAnalyzeSave("images/eyemazestyle.jpg")
-}
-
-func sliceAnalyzeSave(imageName string){
-    m := getImage(imageName)
+func initDB(){
     db, err := sql.Open("sqlite3", "./imagedata.db")
 	if err != nil {
 		log.Fatal(err)
@@ -78,24 +75,213 @@ func sliceAnalyzeSave(imageName string){
     //id integer not null primary key,
     sqlStmt := `
 	create table rgbavg (
-	  imageName text, dim int, x int, y int, r int, g int, b int);
+	  imageName text, dim text, x int, y int, r int, g int, b int);
 	delete from foo;
 	`
 	_, err = db.Exec(sqlStmt)
 	if err != nil {
-		log.Printf("%q: %s\n", err, sqlStmt)
+		//log.Printf("%q: %s\n", err, sqlStmt)
 	}
+}
 
+func main(){
+
+    initDB()
+    //sliceAnalyzeSave("images/snowmandala.jpg")
+    //sliceAnalyzeSave("images/eyemazestyle.jpg")
+    //sliceAnalyzeSave("images/figs.jpg")
+    //sliceAnalyzeSave("images/oranges.jpg")
+    //sliceAnalyzeSave("images/apples.jpg")
+
+
+    makeImageFromSlices("images/eyemazestyle.jpg")
+
+
+}
+
+func makeImageFromSlices(imageName string){
+    m := getImage(imageName)
+    /////////////
+    /////////////
+    //slice and analyze
+    m = resize.Resize(960, 540, m, resize.Lanczos3)
+    bounds := m.Bounds()
 
     //xsplits := 20
     //ysplits := 20
-
     const xsplits = 4
     const ysplits = 4
     //const xsplits = 10
     //const ysplits = 10
+    yregionsize := bounds.Max.Y / ysplits
+    xregionsize := bounds.Max.X / xsplits
 
+    //make a 3D slice
+    var rgbsumregions = make([][][]uint32, xsplits)
+    for i:=0;i<xsplits;i++{
+        rgbsumregions[i] = make([][]uint32, ysplits)
+        for j:=0;j<ysplits;j++{
+            rgbsumregions[i][j] = make([]uint32, 3)
+        }
+    }
+
+    //var rgbsumregions [ysplits][xsplits][3]uint32
+    avgregions := make([][][]float32, xsplits)
+    for i:=0;i<xsplits;i++{
+        avgregions[i] = make([][]float32, ysplits)
+        for j:=0;j<ysplits;j++{
+            avgregions[i][j] = make([]float32, 3)
+        }
+    }
+
+    fmt.Printf("Region Splits: %dx%d %dx%d\n",
+        xregionsize, yregionsize, xsplits, ysplits)
+
+    for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, g, b, _ := m.At(x, y).RGBA()
+            r = r>>8
+            g = g>>8
+            b = b>>8
+            yregionbucket := y / yregionsize
+            xregionbucket := x / xregionsize
+            rgbsumregions[xregionbucket][yregionbucket][0] += r
+            rgbsumregions[xregionbucket][yregionbucket][1] += g
+            rgbsumregions[xregionbucket][yregionbucket][2] += b
+		}
+    }
+
+    //Compute rgb average of each x,y bucket
+    for i:=0; i< xsplits; i++{
+        for j:=0; j<ysplits; j++ {
+            for k := 0; k < 3; k++ {
+                //d := float32(255.0 * yregionsize * xregionsize)
+                d := float32(xregionsize * yregionsize)
+                avgregions[i][j][k] = float32(rgbsumregions[i][j][k]) / d
+            }
+        }
+    }
+
+    /////////////
+    /////////////
+    //scan other images for R axis similarity
+
+    CHOICES := 1000
+    var rname = make([]string, CHOICES) //1000 images to choose from
+    var rval = make([]byte, CHOICES)
+
+    db, err := sql.Open("sqlite3", "./imagedata.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+    //all rows for now
+    //rows, err := db.Query("select imageName, dim, r, g, b from rgbavg ")
+    rows, err := db.Query("select imageName, dim, r from rgbavg ")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+    read := 0
+	for rows.Next() {
+		var imageName string
+		var dim string
+        var red int
+		err = rows.Scan(&imageName, &dim, &red)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(imageName, dim,red)
+
+        rname[read] = imageName
+        rval[read] = byte(red)
+        fmt.Printf("%d read \n",rval[read])
+        read +=1
+        if read >= CHOICES {
+            break
+        }
+	}
+
+
+    //for each region, look for a match in all candidates...
+
+
+    outputImg := image.NewRGBA(bounds)
+    for y :=0; y < ysplits; y++{
+        for x := 0; x <xsplits; x++{
+
+            regionAvg := avgregions[x][y][0]
+
+            //collect similar tiles
+            var hitName string;
+            var ishit = -1;
+            for i:=0; i < len(rval); i++{
+                if math.Abs(float64(float32(rval[i]) - regionAvg)) < 10.0{
+
+                fmt.Printf("Found hit for %dx%d spot with value %d near avg %f\n",
+                    x,y,rval[i], regionAvg)
+
+                    ishit = 1;
+                    hitName = rname[i]
+                }
+            }
+            if ishit == 1 {
+                //open picture and draw it to current image
+                //                func CloneRectToRGBA(src image.Image, rect image.Rectangle, rectPoint image.Point) draw.Image{
+                //dst := image.NewRGBA(rect)
+                srcImg := getImage(hitName)
+                //srcBounds := srcImg.bounds()
+                rect := srcImg.Bounds()
+                rectPoint := image.Pt(x*xregionsize,y*yregionsize)
+                rect = rect.Add(rectPoint)
+                //
+                //rectTarget := image.Pt(x*xregionsize,y*yregionsize)
+
+                draw.Draw(outputImg, rect, srcImg, image.Pt(0,0), draw.Src)
+                //return dst
+                //}
+                fmt.Printf("Drawing\n")
+            }
+
+            ishit = 0;
+        }
+
+    }
+
+    _, noPathName := filepath.Split(imageName)
+    var extension = filepath.Ext(noPathName)
+    var noExtensionName = noPathName[0:len(noPathName)-len(extension)]
+
+    outputFile, err := os.Create(fmt.Sprintf("output/%s.png",noExtensionName))
+            if err != nil {
+                log.Fatal("cant save file")
+            }
+            png.Encode(outputFile, outputImg)
+            outputFile.Close()
+    //tx.Commit()
+
+}
+
+func sliceAnalyzeSave(imageName string){
+
+    db, err := sql.Open("sqlite3", "./imagedata.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+
+    m := getImage(imageName)
+    m = resize.Resize(960, 540, m, resize.Lanczos3)
     bounds := m.Bounds()
+
+    //xsplits := 20
+    //ysplits := 20
+    const xsplits = 4
+    const ysplits = 4
+    //const xsplits = 10
+    //const ysplits = 10
     yregionsize := bounds.Max.Y / ysplits
     xregionsize := bounds.Max.X / xsplits
 
@@ -158,25 +344,6 @@ func sliceAnalyzeSave(imageName string){
     if err != nil {log.Fatal(err)}
     defer stmt.Close()
 
-    //index := 1
-    for i:=0; i< xsplits; i++{
-        for j:=0; j<ysplits; j++ {
-
-                name := fmt.Sprintf("%s-%d-%d", imageName,i,j)
-                _, err = stmt.Exec(name, xregionsize, i,j,
-                    int(avgregions[i][j][0]),
-                    int(avgregions[i][j][1]),
-                    int(avgregions[i][j][2]))
-
-                if err != nil {
-                    log.Fatal(err)
-                }
-
-
-        }
-    }
-
-	tx.Commit()
 
 
     for y :=0; y < ysplits; y++{
@@ -186,18 +353,35 @@ func sliceAnalyzeSave(imageName string){
             rectPoint := image.Pt(x*xregionsize,y*yregionsize)
             b = b.Add(rectPoint)
 
-            myImage := CloneRectToRGBA(m, b, rectPoint)
+
+            myImage := CloneRectToRGBA(m, b)
 
             dimensions := strconv.Itoa(xsplits) + "x" + strconv.Itoa(ysplits)
             region := strconv.Itoa(x) + "-"+ strconv.Itoa(y)
             var extension = filepath.Ext(imageName)
             var name = imageName[0:len(imageName)-len(extension)]
 
-            os.MkdirAll(name, os.ModePerm);
-            fileName := name+"/"+dimensions + "-" + region + ".png"
-            fmt.Println(fileName)
+            fullPathFileName := name+"/"+dimensions + "-" + region +".png"
 
-            outputFile, err := os.Create(fileName)
+            _, endname := filepath.Split(fullPathFileName)
+            fmt.Println(endname)
+
+            _, err = stmt.Exec(fullPathFileName,
+                    fmt.Sprintf("%dx%d-%s", xsplits,ysplits,region),
+                    x,y,
+                    int(avgregions[x][y][0]),
+                    int(avgregions[x][y][1]),
+                    int(avgregions[x][y][2]))
+
+            if err != nil {
+                log.Fatal(err)
+            }
+
+            os.MkdirAll(name, os.ModePerm);
+            fmt.Println(fullPathFileName)
+
+
+            outputFile, err := os.Create(fullPathFileName)
             if err != nil {
                 log.Fatal("cant save file")
             }
@@ -206,10 +390,12 @@ func sliceAnalyzeSave(imageName string){
         }
 
     }
+    tx.Commit()
+
 }
 
 
-func sliceAndSave(){
+func sliceSave(){
     m := getImage("images/snowmandala.jpg")
     bounds := m.Bounds()
 
@@ -292,7 +478,7 @@ func sliceAndSave(){
 
             fmt.Println(fileName)
 
-            myImage := CloneRectToRGBA(m, b, rectPoint)
+            myImage := CloneRectToRGBA(m, b)
             outputFile, err := os.Create(fileName)
             if err != nil {
                 // Handle error
@@ -408,142 +594,6 @@ func LowerResolution() {
 }
 
 
-func getImageStats(){
-    //reader, err := os.Open("eyemazestyle.jpg")
-    reader, err := os.Open("images/snowmandala.jpg")
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    defer reader.Close()
-    m, _, err := image.Decode(reader)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    fmt.Println("bounds of opened image", m.Bounds())
-    bounds := m.Bounds()
-    var rgbsum [3]uint32
-    for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			r, g, b, _ := m.At(x, y).RGBA()
-            rgbsum[0] += r>>8
-            rgbsum[1] += g>>8
-            rgbsum[2] += b>>8
-		}
-    }
-
-    fmt.Println("RGBSUM: ", rgbsum)
-    fmt.Println(rgbsum[0])
-    fmt.Println(rgbsum[1])
-    fmt.Println(rgbsum[2])
-
-    fmt.Println("% 0 -> 100% avg of rgb value in total image")
-    d := float32(255 * bounds.Max.Y * bounds.Max.X)
-    fmt.Println(float32(rgbsum[0]) / d)
-    fmt.Println(float32(rgbsum[1]) / d)
-    fmt.Println(float32(rgbsum[2]) / d)
-
-}
-
-func createImage(){
-    // Create a blank image 100x200 pixels
-    myImage := image.NewRGBA(image.Rect(0, 0, 100, 200))
-
-    // You can access the pixels through myImage.Pix[i]
-    // One pixel takes up four bytes/uint8. One for each: RGBA
-    // So the first pixel is controlled by the first 4 elements
-    // Values for color are 0 black - 255 full color
-    // Alpha value is 0 transparent - 255 opaque
-    myImage.Pix[0] = 255 // 1st pixel red
-    myImage.Pix[1] = 0 // 1st pixel green
-    myImage.Pix[2] = 0 // 1st pixel blue
-    myImage.Pix[3] = 255 // 1st pixel alpha
-
-    i := 0
-
-    // 100x200 = 20 000 pixels x 4bytes == 80 000
-    for i < 20000{
-
-        if i % 5 == 0 {
-            myImage.Pix[i] = 110
-            myImage.Pix[i+1] = 255
-            myImage.Pix[i+2] = 30
-            myImage.Pix[i+3] = 255
-        } else {
-            myImage.Pix[i] = 170
-            myImage.Pix[i+1] = 255
-            myImage.Pix[i+2] = 30
-            myImage.Pix[i+3] = 255
-        }
-
-
-        i += 4;
-
-    }
-
-    fmt.Println(myImage.Stride) // 40 for an image 10 pixels wide
 
 
 
-    // outputFile is a File type which satisfies Writer interface
-    outputFile, err := os.Create("test.png")
-    if err != nil {
-    	// Handle error
-    }
-
-    // Encode takes a writer interface and an image interface
-    // We pass it the File and the RGBA
-    png.Encode(outputFile, myImage)
-
-    // Don't forget to close files
-    outputFile.Close()
-}
-
-
-func drawRGBOnCopy() {
-	// Decode the JPEG data. If reading from file, create a reader with
-	//
-    //reader, err := os.Open("eyemazestyle.jpg")
-    reader, err := os.Open("images/snowmandala.jpg")
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    defer reader.Close()
-    m, _, err := image.Decode(reader)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    fmt.Println("bounds of opened image", m.Bounds())
-    bounds := m.Bounds()
-    myImage := CloneToRGBA(m)
-
-    for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			r, g, b, _ := m.At(x, y).RGBA()
-
-            if r>>8 < 100 {
-                myImage.Set(x,y, color.RGBA{255, 0, 0, 255})
-            }else if g>>8 < 100 {
-                myImage.Set(x,y, color.RGBA{0, 255, 0, 255})
-            }else if b>>8 < 100 {
-                myImage.Set(x,y, color.RGBA{0, 0, 255, 255})
-            }
-
-		}
-    }
-
-
-    // outputFile is a File type which satisfies Writer interface
-    outputFile, err := os.Create("testdrawrgb.png")
-    if err != nil {
-    	// Handle error
-    }
-
-    png.Encode(outputFile, myImage)
-
-    // Don't forget to close files
-    outputFile.Close()
-}
