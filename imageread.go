@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image"
 	"log"
+    "math/rand"
 	//"strings"
 	 _ "image/gif"
 	 _ "image/png"
@@ -28,7 +29,9 @@ import (
     "path/filepath"
 
     "math"
+    "time"
 )
+
 
 
 func clonePix(b []uint8) []byte {
@@ -61,7 +64,7 @@ func getImage(imageName string) image.Image{
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Println("bounds of opened image", m.Bounds())
+    //fmt.Println("bounds of opened image", m.Bounds())
     return m
 }
 
@@ -84,17 +87,27 @@ func initDB(){
 	}
 }
 
+//const xsplits = 10
+//const ysplits = 10
+const xsplits = 20
+const ysplits = 20
+//const xsplits = 30
+//const ysplits = 30
+
+
 func main(){
 
-    initDB()
-    //sliceAnalyzeSave("images/snowmandala.jpg")
-    //sliceAnalyzeSave("images/eyemazestyle.jpg")
+    //have to do this so math.rand works...
+    rand.Seed(time.Now().UnixNano())
+
+    //initDB()
     //sliceAnalyzeSave("images/figs.jpg")
     //sliceAnalyzeSave("images/oranges.jpg")
     //sliceAnalyzeSave("images/apples.jpg")
 
 
-    makeImageFromSlices("images/eyemazestyle.jpg")
+    makeImageFromSlices("input/eyemazestyle.jpg")
+    //makeImageFromSlices("input/snowmandala.jpg")
 
 
 }
@@ -106,13 +119,6 @@ func makeImageFromSlices(imageName string){
     //slice and analyze
     m = resize.Resize(960, 540, m, resize.Lanczos3)
     bounds := m.Bounds()
-
-    //xsplits := 20
-    //ysplits := 20
-    const xsplits = 4
-    const ysplits = 4
-    //const xsplits = 10
-    //const ysplits = 10
     yregionsize := bounds.Max.Y / ysplits
     xregionsize := bounds.Max.X / xsplits
 
@@ -168,7 +174,10 @@ func makeImageFromSlices(imageName string){
 
     CHOICES := 1000
     var rname = make([]string, CHOICES) //1000 images to choose from
-    var rval = make([]byte, CHOICES)
+    var rgbval = make([][]byte, CHOICES)
+    for i:=0;i<CHOICES;i++{
+        rgbval[i] = make([]byte, 3)
+    }
 
     db, err := sql.Open("sqlite3", "./imagedata.db")
 	if err != nil {
@@ -178,73 +187,79 @@ func makeImageFromSlices(imageName string){
 
     //all rows for now
     //rows, err := db.Query("select imageName, dim, r, g, b from rgbavg ")
-    rows, err := db.Query("select imageName, dim, r from rgbavg ")
+    rows, err := db.Query("select imageName, dim, r,g,b from rgbavg ")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer rows.Close()
     read := 0
 	for rows.Next() {
-		var imageName string
-		var dim string
+        var imageName string
+        var dim string
         var red int
-		err = rows.Scan(&imageName, &dim, &red)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(imageName, dim,red)
+        var green int
+        var blue int
+        err = rows.Scan(&imageName, &dim, &red, &green, &blue)
+        if err != nil {
+            log.Fatal(err)
+        }
+        //fmt.Println(imageName, dim, red)
 
         rname[read] = imageName
-        rval[read] = byte(red)
-        fmt.Printf("%d read \n",rval[read])
-        read +=1
+        rgbval[read][0] = byte(red)
+        rgbval[read][1] = byte(green)
+        rgbval[read][2] = byte(blue)
+        //fmt.Printf("%d read \n",rval[read])
+        read += 1
         if read >= CHOICES {
             break
         }
-	}
+    }
 
 
-    //for each region, look for a match in all candidates...
-
-
+    //for each region, look for a match
     outputImg := image.NewRGBA(bounds)
     for y :=0; y < ysplits; y++{
         for x := 0; x <xsplits; x++{
 
-            regionAvg := avgregions[x][y][0]
+            redAvg := avgregions[x][y][0]
+            greenAvg := avgregions[x][y][0]
+            blueAvg := avgregions[x][y][2]
 
-            //collect similar tiles
-            var hitName string;
-            var ishit = -1;
-            for i:=0; i < len(rval); i++{
-                if math.Abs(float64(float32(rval[i]) - regionAvg)) < 10.0{
 
-                fmt.Printf("Found hit for %dx%d spot with value %d near avg %f\n",
-                    x,y,rval[i], regionAvg)
+            var rCHOICES = 10 // max chioces for winning tile
+            var hitCounter = 0;
+            var hitNames = make([]string, rCHOICES)
+            for i:=0; i < len(rgbval); i++{
+                if  math.Abs(float64(float32(rgbval[i][0]) - redAvg)) < 10.0 &&
+                    math.Abs(float64(float32(rgbval[i][1]) - greenAvg)) < 70.0 &&
+                    math.Abs(float64(float32(rgbval[i][2]) - blueAvg)) < 40.0 {
 
-                    ishit = 1;
-                    hitName = rname[i]
+                //fmt.Printf("Found hit for %dx%d spot with value %d near avg %f\n",
+                //    x,y,rval[i], regionAvg)
+
+                    hitNames[hitCounter] = rname[i]
+                    hitCounter += 1;
+                    if hitCounter >= rCHOICES {
+                        break
+                    }
                 }
             }
-            if ishit == 1 {
+            if hitCounter > 0 {
+                winnerImageName := hitNames[rand.Intn(hitCounter)] //0->4
                 //open picture and draw it to current image
-                //                func CloneRectToRGBA(src image.Image, rect image.Rectangle, rectPoint image.Point) draw.Image{
-                //dst := image.NewRGBA(rect)
-                srcImg := getImage(hitName)
-                //srcBounds := srcImg.bounds()
+                srcImg := getImage(winnerImageName)
+
                 rect := srcImg.Bounds()
                 rectPoint := image.Pt(x*xregionsize,y*yregionsize)
-                rect = rect.Add(rectPoint)
-                //
-                //rectTarget := image.Pt(x*xregionsize,y*yregionsize)
+                rectInOutputImg := rect.Add(rectPoint)
 
-                draw.Draw(outputImg, rect, srcImg, image.Pt(0,0), draw.Src)
-                //return dst
-                //}
-                fmt.Printf("Drawing\n")
+                draw.Draw(outputImg, rectInOutputImg, srcImg, image.Pt(0,0), draw.Src)
+
+                //fmt.Printf("Drawing @ %dx%d with winner %s\n", x,y,winnerImageName)
             }
 
-            ishit = 0;
+            hitCounter = 0;
         }
 
     }
@@ -276,12 +291,7 @@ func sliceAnalyzeSave(imageName string){
     m = resize.Resize(960, 540, m, resize.Lanczos3)
     bounds := m.Bounds()
 
-    //xsplits := 20
-    //ysplits := 20
-    const xsplits = 4
-    const ysplits = 4
-    //const xsplits = 10
-    //const ysplits = 10
+
     yregionsize := bounds.Max.Y / ysplits
     xregionsize := bounds.Max.X / xsplits
 
@@ -399,14 +409,6 @@ func sliceSave(){
     m := getImage("images/snowmandala.jpg")
     bounds := m.Bounds()
 
-    const xsplits = 20
-    const ysplits = 20
-
-    //const xsplits = 4
-    //const ysplits = 4
-    //const xsplits = 10
-    //const ysplits = 10
-
     yregionsize := bounds.Max.Y / ysplits
     xregionsize := bounds.Max.X / xsplits
 
@@ -500,12 +502,6 @@ func LowerResolution() {
     myImage := CloneToRGBA(m)
 
 
-    const xsplits = 20
-    const ysplits = 20
-    //const xsplits = 4
-    //const ysplits = 4
-    //const xsplits = 10
-    //const ysplits = 10
     var rgbsumregions [ysplits][xsplits][3]uint32
 
     yregionsize := bounds.Max.Y / ysplits
