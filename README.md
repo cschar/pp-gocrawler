@@ -2,6 +2,16 @@
 
 # README
 
+
+
+
+## run crawler
+```
+go run main.go
+# in browser open localhost:8000
+```
+
+
 go tut code:
 https://pythonprogramming.net/go/introduction-go-language-programming-tutorial/
 
@@ -28,6 +38,6 @@ TODO:
 
 #web stuff
 - [DONE] worker pool fetching images from blog
-- worker pool consuming images from a crawler
+- [DONE] worker pool consuming images from a crawler
 - sort them into rgb categories (overall red, green or blue images)
 https://gobyexample.com/worker-pools
