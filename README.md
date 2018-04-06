@@ -18,8 +18,19 @@ go run webread.go scrape      # generates scrape.txt with image urls
 go run webread.go fetch       # workers fetch the images
 ```
 
+## building server for linux deployment
+
+```
+type 'arch' in your linux box:
+
+#amd64 for x86_64
+env GOARCH=amd64 GOOS=linux go build -o mainlin main.go
+```
+
+
 go tut code:
 https://pythonprogramming.net/go/introduction-go-language-programming-tutorial/
+https://dev.to/gcdcoder/how-to-upload-files-with-golang-and-ajax
 
 go image code:
 https://www.devdungeon.com/content/working-images-go

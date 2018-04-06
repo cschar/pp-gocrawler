@@ -2,13 +2,13 @@ package main
 
 import (
 	"net/http"
-	"ppgocrawler/controllers"
+	"github.com/cschar/pp-gocrawler/controllers"
+	"github.com/cschar/pp-gocrawler/imageprocessing"
 	"log"
 	"time"
 	"math/rand"
 	"fmt"
 	"os"
-	"ppgocrawler/imageprocessing"
 )
 
 
