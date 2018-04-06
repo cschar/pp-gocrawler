@@ -20,11 +20,13 @@
 
     function onInputResponse(response) {
         if (response.status == 200){
+            inputs.innerHTML = ""
             response.data.Files.map(function (x){
-                inputs.innerHTML += "<li> <div style='background-color:darkseagreen'>"
+                inputs.innerHTML += " <div style='background-color:darkseagreen'>"
                 inputs.innerHTML +=  "input- <a href=" + "'input/"+ x +"'" + ">" + x + "</a>"
                 //inputs.innerHTML += "<button> Mix </button>"
-                inputs.innerHTML += " </div></li>"
+                inputs.innerHTML += "<img height='100' width='200' src='input/" + x+"'/>"
+                inputs.innerHTML += " </div>"
             })
         }else{
             alert('error with mixed images')
@@ -40,7 +42,7 @@
 
     function onMixedResponse(response) {
         if (response.status == 200){
-
+            mixes.innerHTML = ""
             response.data.Files.map(function (x){
                 mixes.innerHTML += "<li> <div>"
                 mixes.innerHTML +=  "mix <a href=" + "'output/"+ x +"'" + ">" + x + "</a>"

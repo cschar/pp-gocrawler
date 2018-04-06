@@ -7,6 +7,7 @@ import (
     "net/http"
     "encoding/json"
     "log"
+    "ppgocrawler/imageprocessing"
 )
 
 
@@ -28,8 +29,8 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
     switch mimeType {
     case "image/jpeg":
         saveFile(w, file, handle)
-    case "image/png":
-        saveFile(w, file, handle)
+    //case "image/png":
+    //    saveFile(w, file, handle)
     default:
         jsonResponse(w, http.StatusBadRequest, "The format file is not valid.")
     }
@@ -42,11 +43,18 @@ func saveFile(w http.ResponseWriter, file multipart.File, handle *multipart.File
         return
     }
 
-    err = ioutil.WriteFile("./uploadfiles/"+handle.Filename, data, 0666)
+    filepath := "./uploadfiles/"+handle.Filename
+    err = ioutil.WriteFile(filepath, data, 0666)
     if err != nil {
         fmt.Fprintf(w, "%v", err)
         return
     }
+
+    //mix image
+    imageprocessing.MakeImageFromSlices(filepath)
+
+
+
     jsonResponse(w, http.StatusCreated, "File uploaded successfully!.")
 }
 

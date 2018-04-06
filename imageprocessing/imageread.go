@@ -1,6 +1,6 @@
 //https://www.devdungeon.com/content/working-images-go
 // This example demonstrates decoding a JPEG image and examining its pixels.
-package main
+package imageprocessing
 
 import (
 	//"encoding/base64"
@@ -106,13 +106,13 @@ func main(){
     //sliceAnalyzeSave("images/apples.jpg")
 
 
-    makeImageFromSlices("input/eyemazestyle.jpg")
-    //makeImageFromSlices("input/snowmandala.jpg")
+    MakeImageFromSlices("public/input/eyemazestyle.jpg")
+    //MakeImageFromSlices("input/snowmandala.jpg")
 
 
 }
 
-func makeImageFromSlices(imageName string){
+func MakeImageFromSlices(imageName string){
     m := getImage(imageName)
     /////////////
     /////////////
@@ -268,7 +268,7 @@ func makeImageFromSlices(imageName string){
     var extension = filepath.Ext(noPathName)
     var noExtensionName = noPathName[0:len(noPathName)-len(extension)]
 
-    outputFile, err := os.Create(fmt.Sprintf("output/%s.png",noExtensionName))
+    outputFile, err := os.Create(fmt.Sprintf("public/output/%s.png",noExtensionName))
             if err != nil {
                 log.Fatal("cant save file")
             }
