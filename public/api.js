@@ -8,3 +8,13 @@ function post(url, data) {
             return error.response;
         });
 }
+
+
+function getJSON(url){
+    return axios.get(url)
+        .then(function (response) {
+            return response;
+        }).catch(function (error) {
+            return error.response;
+        });
+}

@@ -5,12 +5,18 @@
 
 
 
-## run crawler
+## run server
 ```
 go run main.go
 # in browser open localhost:8000
 ```
 
+
+### run crawler with workers
+```
+go run webread.go scrape      # generates scrape.txt with image urls
+go run webread.go fetch       # workers fetch the images
+```
 
 go tut code:
 https://pythonprogramming.net/go/introduction-go-language-programming-tutorial/

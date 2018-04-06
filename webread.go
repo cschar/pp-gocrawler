@@ -158,9 +158,10 @@ func ImageFetchWorker(id string, jobs <-chan string){
         //https://gobyexample.com/mutexes
         //https://gobyexample.com/atomic-counters
         atomic.AddUint64(&saves, 1)
-        current := atomic.LoadInt64(&saves)
-        if current % 20 == 0{
-            fmt.Println("worker %s @ %d saves", id, current)
+        //current := atomic.LoadInt64(&saves)
+        if saves % 20 == 0{
+            //fmt.Println("worker %s @ %d saves", id, current)
+            fmt.Printf("worker %s @ %d saves", id, saves)
         }
 
     }
@@ -207,7 +208,22 @@ func FetcherWorkers(){
 }
 
 func main() {
-    //ScraperWorkers()
+    usage := "Usage: \n\n go run webread.go scrape \n go run webread.go fetch"
+    if len(os.Args) < 2 {
+        fmt.Println(usage)
+        os.Exit(0)
+    }
 
-    FetcherWorkers()
+    arg := os.Args[1]
+    if (arg == "scrape") {
+        fmt.Println("scraping")
+        ScraperWorkers()
+    }else if (arg == "fetch") {
+        fmt.Println("fetching from scraped locations in scrape.txt file")
+        FetcherWorkers()
+    }else{
+        fmt.Println(usage)
+    }
+
+
 }

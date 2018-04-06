@@ -4,7 +4,12 @@ body {
     padding: 0;
     width: 100%;
     height: 100vh;
+    background-color: #e2e0e6;
     font-family: Verdana, Geneva, Tahoma, sans-serif;
+}
+
+.container {
+    background-color: #FFF;
 }
 
 body,

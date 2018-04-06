@@ -5,6 +5,8 @@ import (
     "io/ioutil"
     "mime/multipart"
     "net/http"
+    "encoding/json"
+    "log"
 )
 
 
@@ -52,4 +54,59 @@ func jsonResponse(w http.ResponseWriter, code int, message string) {
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(code)
     fmt.Fprint(w, message)
+}
+
+
+type Profile struct {
+  Name    string
+  Files []string
+}
+
+func MixedImages(w http.ResponseWriter, r *http.Request) {
+  //profile := Profile{"ImageMixes", []string{"output/eyemazestyle.png", "output/snowymandala.png"}}
+
+    files, err := ioutil.ReadDir("./public/output")  // relative to main.go
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    var s []string
+    for _, f := range files {
+        s = append(s, f.Name())
+    }
+    profile2 := Profile{"ImageMixes", s}
+
+  js, err := json.Marshal(profile2)
+  if err != nil {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+    return
+  }
+
+  w.Header().Set("Content-Type", "application/json")
+  w.Write(js)
+}
+
+
+func InputImages(w http.ResponseWriter, r *http.Request) {
+  //profile := Profile{"ImageMixes", []string{"output/eyemazestyle.png", "output/snowymandala.png"}}
+
+    files, err := ioutil.ReadDir("./public/input")  // relative to main.go
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    var s []string
+    for _, f := range files {
+        s = append(s, f.Name())
+    }
+    profile2 := Profile{"ImageInputs", s}
+
+  js, err := json.Marshal(profile2)
+  if err != nil {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+    return
+  }
+
+  w.Header().Set("Content-Type", "application/json")
+  w.Write(js)
 }

@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"crypto/md5"
 	"time"
+	"ppgocrawler/controllers"
+	"log"
 )
 
 var wg sync.WaitGroup
@@ -133,9 +135,19 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
+
+
+
 func main() {
-	http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/agg/", newsAggHandler)
-	http.HandleFunc("/upload", upload)
+	//http.HandleFunc("/", indexHandler)
+	//http.HandleFunc("/agg/", newsAggHandler)
+	//http.HandleFunc("/upload", upload)
+
+	http.Handle("/", http.FileServer(http.Dir("./public")))
+    http.HandleFunc("/upload", controllers.UploadFile)
+	http.HandleFunc("/mixed", controllers.MixedImages)
+	http.HandleFunc("/input", controllers.InputImages)
+    log.Println("Running")
+
 	http.ListenAndServe(":8000", nil)
 }
