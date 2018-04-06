@@ -30,8 +30,23 @@ arch   #x86_64 usually
 
 #amd64 for x86_64
 env GOARCH=amd64 GOOS=linux go build -o mainlin main.go
+
+# or just ssh into linux box and build locally
+go build -o mainlin main.go
 ```
 
+
+# developing
+
+when developing and pushing changes, to update the dependency on an external box:
+
+```
+go get -u all
+
+# single package
+go get -u github.com/cschar/pp-gocrawler
+
+```
 
 go tut code:
 https://pythonprogramming.net/go/introduction-go-language-programming-tutorial/
