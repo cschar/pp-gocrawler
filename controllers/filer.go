@@ -7,7 +7,7 @@ import (
     "net/http"
     "encoding/json"
     "log"
-    "ppgocrawler/imageprocessing"
+    "github.com/cschar/pp-gocrawler/imageprocessing"
 )
 
 

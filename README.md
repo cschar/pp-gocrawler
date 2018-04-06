@@ -20,8 +20,13 @@ go run webread.go fetch       # workers fetch the images
 
 ## building server for linux deployment
 
+
+
 ```
-type 'arch' in your linux box:
+Make sure go is installed then:
+go get -v github.com/cschar/pp-gocrawler   # this will also download the dependencies
+
+arch   #x86_64 usually
 
 #amd64 for x86_64
 env GOARCH=amd64 GOOS=linux go build -o mainlin main.go
