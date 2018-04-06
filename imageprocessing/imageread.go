@@ -95,18 +95,17 @@ const ysplits = 20
 //const ysplits = 30
 
 
-func main(){
+func InitData(){
 
     //have to do this so math.rand works...
     rand.Seed(time.Now().UnixNano())
 
-    //initDB()
-    //sliceAnalyzeSave("images/figs.jpg")
-    //sliceAnalyzeSave("images/oranges.jpg")
-    //sliceAnalyzeSave("images/apples.jpg")
+    initDB()
+    sliceAnalyzeSave("images/figs.jpg")
+    sliceAnalyzeSave("images/oranges.jpg")
+    sliceAnalyzeSave("images/apples.jpg")
 
-
-    MakeImageFromSlices("public/input/eyemazestyle.jpg")
+    //MakeImageFromSlices("public/input/eyemazestyle.jpg")
     //MakeImageFromSlices("input/snowmandala.jpg")
 
 
