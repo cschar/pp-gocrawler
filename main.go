@@ -25,7 +25,7 @@ func server() {
 	http.HandleFunc("/input", controllers.InputImages)
 
 	log.Println("Running")
-	http.ListenAndServe(":8000", nil)
+	http.ListenAndServe(":8123", nil)
 }
 
 func main(){
