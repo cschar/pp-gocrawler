@@ -55,7 +55,8 @@ func saveFile(w http.ResponseWriter, file multipart.File, handle *multipart.File
 
 
 
-    jsonResponse(w, http.StatusCreated, "File uploaded successfully!.")
+    jsonResponse(w, http.StatusCreated,
+         "File uploaded successfully!. File: " + handle.Filename)
 }
 
 func jsonResponse(w http.ResponseWriter, code int, message string) {

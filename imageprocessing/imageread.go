@@ -230,7 +230,7 @@ func MakeImageFromSlices(imageName string){
             var hitCounter = 0;
             var hitNames = make([]string, rCHOICES)
             for i:=0; i < len(rgbval); i++{
-                if  math.Abs(float64(float32(rgbval[i][0]) - redAvg)) < 10.0 &&
+                if  math.Abs(float64(float32(rgbval[i][0]) - redAvg)) < 30.0 &&
                     math.Abs(float64(float32(rgbval[i][1]) - greenAvg)) < 70.0 &&
                     math.Abs(float64(float32(rgbval[i][2]) - blueAvg)) < 40.0 {
 
@@ -404,7 +404,7 @@ func sliceAnalyzeSave(imageName string){
 }
 
 
-func sliceSave(){
+func StaticSliceSave(){
     m := getImage("images/snowmandala.jpg")
     bounds := m.Bounds()
 
@@ -492,7 +492,7 @@ func sliceSave(){
     }
 }
 
-func LowerResolution() {
+func StaticLowerResolution() {
 	// Decode the JPEG data. If reading from file, create a reader with
 	//
     //reader, err := os.Open("eyemazestyle.jpg")

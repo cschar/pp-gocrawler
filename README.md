@@ -7,7 +7,8 @@
 
 ## run server
 ```
-go run main.go
+go run main.go init   
+go run main.go server
 # in browser open localhost:8000
 ```
 

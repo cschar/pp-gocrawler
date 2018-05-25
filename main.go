@@ -24,8 +24,9 @@ func server() {
 	http.HandleFunc("/mixed", controllers.MixedImages)
 	http.HandleFunc("/input", controllers.InputImages)
 
-	log.Println("Running")
-	http.ListenAndServe(":8123", nil)
+	port := "8123"
+	log.Println("Running on port: " + port)
+	http.ListenAndServe(":"+port, nil)
 }
 
 func main(){
