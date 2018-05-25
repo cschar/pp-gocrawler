@@ -2,7 +2,7 @@
 body {
     margin: 0;
     padding: 0;
-    width: 100%;
+
     background-color: #e2e0e6;
     font-family: Verdana, Geneva, Tahoma, sans-serif;
 }
@@ -18,6 +18,18 @@ body,
     align-items: center;
     justify-content: center;
 }
+
+
+.particle-background {
+    position: absolute;
+    display: block;
+    top: 0;
+    
+    left: 0;
+    
+    z-index: -1;
+  }
+
 
 .uploadForm {
     width: 600px;
