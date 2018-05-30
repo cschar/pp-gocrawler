@@ -18,7 +18,6 @@ import (
     //"math"
     //"image/color"
     "image/draw"
-    "image/color"
     //"bytes"
     "strconv"
     //"github.com/boltdb/bolt"
@@ -55,12 +54,12 @@ func CloneRectToRGBA(src image.Image, rect image.Rectangle) draw.Image{
 
 
 func getImage(imageName string) image.Image{
-    reader, err := os.Open(imageName)
+    choice_ier, err := os.Open(imageName)
     if err != nil {
         log.Fatal(err)
     }
-    defer reader.Close()
-    m, _, err := image.Decode(reader)
+    defer choice_ier.Close()
+    m, _, err := image.Decode(choice_ier)
     if err != nil {
         log.Fatal(err)
     }
@@ -93,7 +92,8 @@ const xsplits = 20
 const ysplits = 20
 //const xsplits = 30
 //const ysplits = 30
-
+// const xsplits = 60
+// const ysplits = 60
 
 func InitData(){
 
@@ -104,6 +104,9 @@ func InitData(){
     sliceAnalyzeSave("images/figs.jpg")
     sliceAnalyzeSave("images/oranges.jpg")
     sliceAnalyzeSave("images/apples.jpg")
+    sliceAnalyzeSave("images/kiwi.jpg")
+    sliceAnalyzeSave("images/blueberries.jpg")
+    sliceAnalyzeSave("images/chameleon_blueyellowgreen.jpg")
 
     //MakeImageFromSlices("public/input/eyemazestyle.jpg")
     //MakeImageFromSlices("input/snowmandala.jpg")
@@ -111,7 +114,23 @@ func InitData(){
 
 }
 
-func MakeImageFromSlices(imageName string){
+func MakeImageFromSlices(imageName string) string{
+    // MakeImageFromSlicesCustomThreshold(imageName, 30.0, 70.0, 40.0)
+    return MakeImageFromSlicesCustomThreshold(imageName, 20.0, 30.0, 20.0)
+}
+
+// func Shuffle(slice interface{}) {
+//     rv := reflect.ValueOf(slice)
+//     swap := reflect.Swapper(slice)
+//     length := rv.Len()
+//     for i := length - 1; i > 0; i-- {
+//             j := rand.Intn(i + 1)
+//             swap(i, j)
+//     }
+// }
+
+func MakeImageFromSlicesCustomThreshold(imageName string,
+     rThreshold float64, gThreshold float64, bThreshold float64) string{
     m := getImage(imageName)
     /////////////
     /////////////
@@ -122,37 +141,38 @@ func MakeImageFromSlices(imageName string){
     xregionsize := bounds.Max.X / xsplits
 
     //make a 3D slice
-    var rgbsumregions = make([][][]uint32, xsplits)
+    var inputPixelSums = make([][][]uint32, xsplits)
     for i:=0;i<xsplits;i++{
-        rgbsumregions[i] = make([][]uint32, ysplits)
+        inputPixelSums[i] = make([][]uint32, ysplits)
         for j:=0;j<ysplits;j++{
-            rgbsumregions[i][j] = make([]uint32, 3)
+            inputPixelSums[i][j] = make([]uint32, 3)
         }
     }
 
-    //var rgbsumregions [ysplits][xsplits][3]uint32
-    avgregions := make([][][]float32, xsplits)
+    //var inputPixelSums [ysplits][xsplits][3]uint32
+    inputRGBBucketAvg := make([][][]float32, xsplits)
     for i:=0;i<xsplits;i++{
-        avgregions[i] = make([][]float32, ysplits)
+        inputRGBBucketAvg[i] = make([][]float32, ysplits)
         for j:=0;j<ysplits;j++{
-            avgregions[i][j] = make([]float32, 3)
+            inputRGBBucketAvg[i][j] = make([]float32, 3)
         }
     }
 
-    fmt.Printf("Region Splits: %dx%d %dx%d\n",
+    fmt.Printf("Region Size: %dx%d split into: %dx%d  tiles\n",
         xregionsize, yregionsize, xsplits, ysplits)
 
+    //Sum up each pixel's rgb into its xy buckets
     for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			r, g, b, _ := m.At(x, y).RGBA()
             r = r>>8
             g = g>>8
             b = b>>8
-            yregionbucket := y / yregionsize
-            xregionbucket := x / xregionsize
-            rgbsumregions[xregionbucket][yregionbucket][0] += r
-            rgbsumregions[xregionbucket][yregionbucket][1] += g
-            rgbsumregions[xregionbucket][yregionbucket][2] += b
+            ybucket := y / yregionsize
+            xbucket := x / xregionsize
+            inputPixelSums[xbucket][ybucket][0] += r
+            inputPixelSums[xbucket][ybucket][1] += g
+            inputPixelSums[xbucket][ybucket][2] += b
 		}
     }
 
@@ -160,22 +180,22 @@ func MakeImageFromSlices(imageName string){
     for i:=0; i< xsplits; i++{
         for j:=0; j<ysplits; j++ {
             for k := 0; k < 3; k++ {
-                //d := float32(255.0 * yregionsize * xregionsize)
+                // divide by how many pixels reside in one bucket
                 d := float32(xregionsize * yregionsize)
-                avgregions[i][j][k] = float32(rgbsumregions[i][j][k]) / d
+                inputRGBBucketAvg[i][j][k] = float32(inputPixelSums[i][j][k]) / d
             }
         }
     }
 
     /////////////
     /////////////
-    //scan other images for R axis similarity
+    // scan Database for matching tile choices
 
-    CHOICES := 1000
-    var rname = make([]string, CHOICES) //1000 images to choose from
-    var rgbval = make([][]byte, CHOICES)
-    for i:=0;i<CHOICES;i++{
-        rgbval[i] = make([]byte, 3)
+    MAX_CHOICES := 10000
+    var tileNameBank = make([]string, MAX_CHOICES)
+    var rgbtile_choices = make([][]byte, MAX_CHOICES)
+    for i:=0;i<MAX_CHOICES;i++{
+        rgbtile_choices[i] = make([]byte, 3)
     }
 
     db, err := sql.Open("sqlite3", "./imagedata.db")
@@ -191,7 +211,7 @@ func MakeImageFromSlices(imageName string){
 		log.Fatal(err)
 	}
 	defer rows.Close()
-    read := 0
+    choices_read := 0
 	for rows.Next() {
         var imageName string
         var dim string
@@ -204,40 +224,40 @@ func MakeImageFromSlices(imageName string){
         }
         //fmt.Println(imageName, dim, red)
 
-        rname[read] = imageName
-        rgbval[read][0] = byte(red)
-        rgbval[read][1] = byte(green)
-        rgbval[read][2] = byte(blue)
-        //fmt.Printf("%d read \n",rval[read])
-        read += 1
-        if read >= CHOICES {
+        tileNameBank[choices_read] = imageName
+        rgbtile_choices[choices_read][0] = byte(red)
+        rgbtile_choices[choices_read][1] = byte(green)
+        rgbtile_choices[choices_read][2] = byte(blue)
+        //fmt.Printf("%d choices_read \n",rval[choices_read])
+        choices_read += 1
+        if choices_read >= MAX_CHOICES {
             break
         }
     }
 
 
-    //for each region, look for a match
+    //for each bucket, look for a match
     outputImg := image.NewRGBA(bounds)
     for y :=0; y < ysplits; y++{
         for x := 0; x <xsplits; x++{
 
-            redAvg := avgregions[x][y][0]
-            greenAvg := avgregions[x][y][0]
-            blueAvg := avgregions[x][y][2]
+            redAvg := inputRGBBucketAvg[x][y][0]
+            greenAvg := inputRGBBucketAvg[x][y][1]
+            blueAvg := inputRGBBucketAvg[x][y][2]
 
 
-            var rCHOICES = 10 // max chioces for winning tile
+            var rCHOICES = 20 // max chioces for winning tile
             var hitCounter = 0;
             var hitNames = make([]string, rCHOICES)
-            for i:=0; i < len(rgbval); i++{
-                if  math.Abs(float64(float32(rgbval[i][0]) - redAvg)) < 30.0 &&
-                    math.Abs(float64(float32(rgbval[i][1]) - greenAvg)) < 70.0 &&
-                    math.Abs(float64(float32(rgbval[i][2]) - blueAvg)) < 40.0 {
+            for i:=0; i < len(rgbtile_choices); i++{
+                if  math.Abs(float64(float32(rgbtile_choices[i][0]) - redAvg)) < rThreshold &&
+                    math.Abs(float64(float32(rgbtile_choices[i][1]) - greenAvg)) < gThreshold &&
+                    math.Abs(float64(float32(rgbtile_choices[i][2]) - blueAvg)) < bThreshold {
 
                 //fmt.Printf("Found hit for %dx%d spot with value %d near avg %f\n",
                 //    x,y,rval[i], regionAvg)
 
-                    hitNames[hitCounter] = rname[i]
+                    hitNames[hitCounter] = tileNameBank[i]
                     hitCounter += 1;
                     if hitCounter >= rCHOICES {
                         break
@@ -245,7 +265,9 @@ func MakeImageFromSlices(imageName string){
                 }
             }
             if hitCounter > 0 {
-                winnerImageName := hitNames[rand.Intn(hitCounter)] //0->4
+                hitChoice := rand.Intn(hitCounter)
+                winnerImageName := hitNames[hitChoice] //0->4
+                
                 //open picture and draw it to current image
                 srcImg := getImage(winnerImageName)
 
@@ -255,26 +277,43 @@ func MakeImageFromSlices(imageName string){
 
                 draw.Draw(outputImg, rectInOutputImg, srcImg, image.Pt(0,0), draw.Src)
 
-                //fmt.Printf("Drawing @ %dx%d with winner %s\n", x,y,winnerImageName)
+                fmt.Printf("Hit choice %d out of %d total choices \n",
+                    hitChoice, hitCounter)
+                fmt.Printf("Drawing @ %dx%d with winner %s\n", x,y,winnerImageName)
+
+            }else{
+              
+                //no hits... use random tile
+                winnerImageName := tileNameBank[rand.Intn(choices_read)]
+                srcImg := getImage(winnerImageName)
+
+                rect := srcImg.Bounds()
+                rectPoint := image.Pt(x*xregionsize,y*yregionsize)
+                rectInOutputImg := rect.Add(rectPoint)
+
+                draw.Draw(outputImg, rectInOutputImg, srcImg, image.Pt(0,0), draw.Src)  
             }
+
 
             hitCounter = 0;
         }
 
     }
 
+    //save as png instead of input jpg file format
     _, noPathName := filepath.Split(imageName)
     var extension = filepath.Ext(noPathName)
     var noExtensionName = noPathName[0:len(noPathName)-len(extension)]
 
     outputFile, err := os.Create(fmt.Sprintf("public/output/%s.png",noExtensionName))
             if err != nil {
+                fmt.Printf("cant save file")
                 log.Fatal("cant save file")
             }
             png.Encode(outputFile, outputImg)
             outputFile.Close()
-    //tx.Commit()
-
+    
+    return fmt.Sprintf("%s.png",noExtensionName)
 }
 
 func sliceAnalyzeSave(imageName string){
@@ -295,20 +334,20 @@ func sliceAnalyzeSave(imageName string){
     xregionsize := bounds.Max.X / xsplits
 
     //make a 3D slice
-    var rgbsumregions = make([][][]uint32, xsplits)
+    var inputPixelSums = make([][][]uint32, xsplits)
     for i:=0;i<xsplits;i++{
-        rgbsumregions[i] = make([][]uint32, ysplits)
+        inputPixelSums[i] = make([][]uint32, ysplits)
         for j:=0;j<ysplits;j++{
-            rgbsumregions[i][j] = make([]uint32, 3)
+            inputPixelSums[i][j] = make([]uint32, 3)
         }
     }
 
-    //var rgbsumregions [ysplits][xsplits][3]uint32
-    avgregions := make([][][]float32, xsplits)
+    //var inputPixelSums [ysplits][xsplits][3]uint32
+    inputRGBBucketAvg := make([][][]float32, xsplits)
     for i:=0;i<xsplits;i++{
-        avgregions[i] = make([][]float32, ysplits)
+        inputRGBBucketAvg[i] = make([][]float32, ysplits)
         for j:=0;j<ysplits;j++{
-            avgregions[i][j] = make([]float32, 3)
+            inputRGBBucketAvg[i][j] = make([]float32, 3)
         }
     }
 
@@ -321,11 +360,11 @@ func sliceAnalyzeSave(imageName string){
             r = r>>8
             g = g>>8
             b = b>>8
-            yregionbucket := y / yregionsize
-            xregionbucket := x / xregionsize
-            rgbsumregions[yregionbucket][xregionbucket][0] += r
-            rgbsumregions[yregionbucket][xregionbucket][1] += g
-            rgbsumregions[yregionbucket][xregionbucket][2] += b
+            ybucket := y / yregionsize
+            xbucket := x / xregionsize
+            inputPixelSums[ybucket][xbucket][0] += r
+            inputPixelSums[ybucket][xbucket][1] += g
+            inputPixelSums[ybucket][xbucket][2] += b
 		}
     }
 
@@ -335,7 +374,7 @@ func sliceAnalyzeSave(imageName string){
             for k := 0; k < 3; k++ {
                 //d := float32(255.0 * yregionsize * xregionsize)
                 d := float32(xregionsize * yregionsize)
-                avgregions[i][j][k] = float32(rgbsumregions[i][j][k]) / d
+                inputRGBBucketAvg[i][j][k] = float32(inputPixelSums[i][j][k]) / d
             }
         }
     }
@@ -378,9 +417,9 @@ func sliceAnalyzeSave(imageName string){
             _, err = stmt.Exec(fullPathFileName,
                     fmt.Sprintf("%dx%d-%s", xsplits,ysplits,region),
                     x,y,
-                    int(avgregions[x][y][0]),
-                    int(avgregions[x][y][1]),
-                    int(avgregions[x][y][2]))
+                    int(inputRGBBucketAvg[x][y][0]),
+                    int(inputRGBBucketAvg[x][y][1]),
+                    int(inputRGBBucketAvg[x][y][2]))
 
             if err != nil {
                 log.Fatal(err)
@@ -404,189 +443,6 @@ func sliceAnalyzeSave(imageName string){
 }
 
 
-func StaticSliceSave(){
-    m := getImage("images/snowmandala.jpg")
-    bounds := m.Bounds()
-
-    yregionsize := bounds.Max.Y / ysplits
-    xregionsize := bounds.Max.X / xsplits
-
-    //make a 3D slice
-    var rgbsumregions = make([][][]uint32, xsplits)
-    for i:=0;i<xsplits;i++{
-        rgbsumregions[i] = make([][]uint32, ysplits)
-        for j:=0;j<ysplits;j++{
-            rgbsumregions[i][j] = make([]uint32, 3)
-        }
-    }
-
-    //var rgbsumregions [ysplits][xsplits][3]uint32
-    avgregions := make([][][]float32, xsplits)
-    for i:=0;i<xsplits;i++{
-        avgregions[i] = make([][]float32, ysplits)
-        for j:=0;j<ysplits;j++{
-            avgregions[i][j] = make([]float32, 3)
-        }
-    }
-
-    fmt.Printf("Region Splits: %dx%d %dx%d", xregionsize, yregionsize, xsplits, ysplits)
-
-    for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			r, g, b, _ := m.At(x, y).RGBA()
-            r = r>>8
-            g = g>>8
-            b = b>>8
-            yregionbucket := y / yregionsize
-            xregionbucket := x / xregionsize
-            rgbsumregions[yregionbucket][xregionbucket][0] += r
-            rgbsumregions[yregionbucket][xregionbucket][1] += g
-            rgbsumregions[yregionbucket][xregionbucket][2] += b
-		}
-    }
-
-    //Compute rgb average of each x,y bucket
-    for i:=0; i< ysplits; i++{
-        for j:=0; j<xsplits; j++ {
-            for k := 0; k < 3; k++ {
-                //d := float32(255.0 * yregionsize * xregionsize)
-                d := float32(yregionsize * xregionsize)
-                avgregions[i][j][k] = float32(rgbsumregions[i][j][k]) / d
-            }
-        }
-    }
-
-
-    fmt.Println(bounds)
-    for y :=0; y < ysplits; y++{
-        for x := 0; x <xsplits; x++{
-            //myImage := image.NewRGBA(image.Rect(0, 0, xregionsize, yregionsize))
-
-            b := image.Rect(0,0,
-                xregionsize, yregionsize)
-
-
-            rectPoint := image.Pt(x*xregionsize,y*yregionsize)
-            b = b.Add(rectPoint)
-            fmt.Println(b)
-
-            //dst := image.NewRGBA(b)
-            //draw.Draw(myImage, b, m, b.Min, draw.Src)
-            //return dst
-            dimensions := strconv.Itoa(xregionsize) + "x" + strconv.Itoa(yregionsize)
-            region := strconv.Itoa(x) + "-"+ strconv.Itoa(y)
-            fileName := "images/"+ dimensions + "-" + region + ".png"
-
-            fmt.Println(fileName)
-
-            myImage := CloneRectToRGBA(m, b)
-            outputFile, err := os.Create(fileName)
-            if err != nil {
-                // Handle error
-            }
-            png.Encode(outputFile, myImage)
-            // Don't forget to close files
-            outputFile.Close()
-        }
-
-    }
-}
-
-func StaticLowerResolution() {
-	// Decode the JPEG data. If reading from file, create a reader with
-	//
-    //reader, err := os.Open("eyemazestyle.jpg")
-    m := getImage("images/snowmandala.jpg")
-    bounds := m.Bounds()
-    myImage := CloneToRGBA(m)
-
-
-    var rgbsumregions [ysplits][xsplits][3]uint32
-
-    yregionsize := bounds.Max.Y / ysplits
-    xregionsize := bounds.Max.X / xsplits
-    fmt.Printf("%d %d is xy region sizes", xregionsize, yregionsize)
-
-
-    for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			r, g, b, _ := m.At(x, y).RGBA()
-
-            r = r>>8
-            g = g>>8
-            b = b>>8
-
-            yregionbucket := y / yregionsize
-            xregionbucket := x / xregionsize
-
-            rgbsumregions[yregionbucket][xregionbucket][0] += r
-            rgbsumregions[yregionbucket][xregionbucket][1] += g
-            rgbsumregions[yregionbucket][xregionbucket][2] += b
-
-
-		}
-    }
-
-    //Compute rgb average of each x,y bucket
-    var avgregions [xsplits][ysplits][3]float32
-    for i:=0; i< ysplits; i++{
-        for j:=0; j<xsplits; j++ {
-            for k := 0; k < 3; k++ {
-                //d := float32(255.0 * yregionsize * xregionsize)
-                d := float32(yregionsize * xregionsize)
-                avgregions[i][j][k] = float32(rgbsumregions[i][j][k]) / d
-            }
-        }
-    }
-
-    //Print results
-    //fmt.Println("sumregion [0][0]")
-    //var buffer bytes.Buffer;
-    //for j :=0; j < ysplits; j++{
-    //    for i := 0; i<xsplits; i++{
-    //        s := strconv.FormatFloat(float64(avgregions[j][i][0]), 'f',-1,32)
-    //        buffer.WriteString( s + ", ")
-    //        //fmt.Printf("%f\n", avgregions[j][0][0])
-    //    }
-    //    fmt.Println(buffer.String())
-    //    buffer.Reset()
-    //}
-
-
-
-    //Use average to simplify input image
-    for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			r, g, b, _ := m.At(x, y).RGBA()
-
-            r = r>>8
-            g = g>>8
-            b = b>>8
-
-            yregionbucket := y / yregionsize
-            xregionbucket := x / xregionsize
-
-
-            newR := uint8(avgregions[yregionbucket][xregionbucket][0])
-            newG := uint8(avgregions[yregionbucket][xregionbucket][1])
-            newB := uint8(avgregions[yregionbucket][xregionbucket][2])
-
-            //newColor :=
-            myImage.Set(x,y, color.RGBA{newR, newG, newB, 255})
-
-		}
-    }
-
-
-    // outputFile is a File type which satisfies Writer interface
-    outputFile, err := os.Create("testRegion.png")
-    if err != nil {
-    	// Handle error
-    }
-    png.Encode(outputFile, myImage)
-    // Don't forget to close files
-    outputFile.Close()
-}
 
 
 

@@ -6,6 +6,7 @@
     var buttonInput = d.querySelector("#button-input");
     var mixes = d.querySelector("#mixes");
     var inputs = d.querySelector("#inputs");
+    var lastMix = d.querySelector("#lastMix");
 
 
     buttonMix.addEventListener("click", buttonMixClick);
@@ -44,9 +45,8 @@
         if (response.status == 200){
             mixes.innerHTML = ""
             response.data.Files.map(function (x){
-                mixes.innerHTML += "<li> <div>"
-                mixes.innerHTML +=  "mix <a href=" + "'output/"+ x +"'" + ">" + x + "</a>"
-                mixes.innerHTML += " </div></li>"
+                mixes.innerHTML += "<li> mix <a href=" + "'output/"+ x +"'" + ">" + x + "</a>"
+                mixes.innerHTML += " </li>"
             })
         }else{
             alert('error with mixed images')
@@ -65,13 +65,31 @@
         var formData = new FormData()
         formData.append("file", file)
         post("/upload", formData)
-            .then(onResponse)
-            .catch(onResponse);
+            .then(onUploadResponse)
+            .catch(setFlashNotification("error uploading"));
     }
 
-    function onResponse(response) {
-        var className = (response.status !== 400) ? "success" : "error";
-        divNotification.innerHTML = response.data;
+    function onUploadResponse(response) {
+
+        var className;
+        if (response.stats !== 400){
+            className = "sucess"
+            lastMix.innerHTML = "<img height=400 width='100%' src='" + response.data + "'>"
+            divNotification.innerHTML = "File uploaded successfully : " + response.data;
+        }else{
+            className = "error"
+            divNotification.innerHTML = response.data;
+        }
+        
+        divNotification.classList.add(className);
+        setTimeout(function() {
+            divNotification.classList.remove(className);
+        }, 3000);
+    }
+
+    function setFlashNotification(message){
+        var className = "warning"
+        divNotification.innerHTML = message;
         divNotification.classList.add(className);
         setTimeout(function() {
             divNotification.classList.remove(className);

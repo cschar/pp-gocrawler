@@ -1,8 +1,7 @@
 
 
 # README
-
-
+mosaic style image mixer in go
 
 
 ## run server
@@ -60,6 +59,8 @@ use image/draw and the structs .Set method
 https://stackoverflow.com/questions/28992396/draw-a-rectangle-in-golang
 
 TODO:
+
+- Use webcrawler results as SliceAnalyzeSave inputs
 
 #image stuff
 - [DONE] split image into big regions of avg rgb

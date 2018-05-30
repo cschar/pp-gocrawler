@@ -13,6 +13,7 @@ import (
 
 // UploadFile uploads a file to the server
 func UploadFile(w http.ResponseWriter, r *http.Request) {
+    fmt.Printf("upload file:")
     if r.Method != http.MethodPost {
         http.Redirect(w, r, "/", http.StatusSeeOther)
         return
@@ -24,6 +25,7 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
         return
     }
     defer file.Close()
+
 
     mimeType := handle.Header.Get("Content-Type")
     switch mimeType {
@@ -51,12 +53,11 @@ func saveFile(w http.ResponseWriter, file multipart.File, handle *multipart.File
     }
 
     //mix image
-    imageprocessing.MakeImageFromSlices(filepath)
-
-
-
-    jsonResponse(w, http.StatusCreated,
-         "File uploaded successfully!. File: " + handle.Filename)
+    fmt.Sprintf("mixing  %s \n", filepath)
+    outputImageName := imageprocessing.MakeImageFromSlices(filepath)
+    
+    // http.StatusInternalServerError
+    jsonResponse(w, http.StatusCreated, fmt.Sprintf("output/%s", outputImageName))
 }
 
 func jsonResponse(w http.ResponseWriter, code int, message string) {
