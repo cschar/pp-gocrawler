@@ -72,9 +72,9 @@
     function onUploadResponse(response) {
 
         var className;
-        if (response.stats !== 400){
+        if (response.status !== 400){
             className = "sucess"
-            lastMix.innerHTML = "<img height=400 width='100%' src='" + response.data + "'>"
+            lastMix.innerHTML = "<img height=500 width='500' src='" + response.data + "'>"
             divNotification.innerHTML = "File uploaded successfully : " + response.data;
         }else{
             className = "error"

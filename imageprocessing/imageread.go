@@ -90,6 +90,7 @@ func initDB(){
 //const ysplits = 10
 const xsplits = 20
 const ysplits = 20
+
 //const xsplits = 30
 //const ysplits = 30
 // const xsplits = 60
@@ -129,37 +130,41 @@ func MakeImageFromSlices(imageName string) string{
 //     }
 // }
 
+const xInputsplits = 50
+const yInputsplits = 50
+
 func MakeImageFromSlicesCustomThreshold(imageName string,
      rThreshold float64, gThreshold float64, bThreshold float64) string{
     m := getImage(imageName)
     /////////////
     /////////////
     //slice and analyze
-    m = resize.Resize(960, 540, m, resize.Lanczos3)
+    // m = resize.Resize(960, 540, m, resize.Lanczos3)
+    m = resize.Resize(1000, 1000, m, resize.Lanczos3)
     bounds := m.Bounds()
-    yregionsize := bounds.Max.Y / ysplits
-    xregionsize := bounds.Max.X / xsplits
+    yregionsize := bounds.Max.Y / yInputsplits
+    xregionsize := bounds.Max.X / xInputsplits
 
     //make a 3D slice
-    var inputPixelSums = make([][][]uint32, xsplits)
-    for i:=0;i<xsplits;i++{
-        inputPixelSums[i] = make([][]uint32, ysplits)
-        for j:=0;j<ysplits;j++{
+    var inputPixelSums = make([][][]uint32, xInputsplits)
+    for i:=0;i<xInputsplits;i++{
+        inputPixelSums[i] = make([][]uint32, yInputsplits)
+        for j:=0;j<yInputsplits;j++{
             inputPixelSums[i][j] = make([]uint32, 3)
         }
     }
 
     //var inputPixelSums [ysplits][xsplits][3]uint32
-    inputRGBBucketAvg := make([][][]float32, xsplits)
-    for i:=0;i<xsplits;i++{
-        inputRGBBucketAvg[i] = make([][]float32, ysplits)
-        for j:=0;j<ysplits;j++{
+    inputRGBBucketAvg := make([][][]float32, xInputsplits)
+    for i:=0;i<xInputsplits;i++{
+        inputRGBBucketAvg[i] = make([][]float32, yInputsplits)
+        for j:=0;j<yInputsplits;j++{
             inputRGBBucketAvg[i][j] = make([]float32, 3)
         }
     }
 
     fmt.Printf("Region Size: %dx%d split into: %dx%d  tiles\n",
-        xregionsize, yregionsize, xsplits, ysplits)
+        xregionsize, yregionsize, xInputsplits, yInputsplits)
 
     //Sum up each pixel's rgb into its xy buckets
     for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
@@ -177,8 +182,8 @@ func MakeImageFromSlicesCustomThreshold(imageName string,
     }
 
     //Compute rgb average of each x,y bucket
-    for i:=0; i< xsplits; i++{
-        for j:=0; j<ysplits; j++ {
+    for i:=0; i< xInputsplits; i++{
+        for j:=0; j<yInputsplits; j++ {
             for k := 0; k < 3; k++ {
                 // divide by how many pixels reside in one bucket
                 d := float32(xregionsize * yregionsize)
@@ -238,8 +243,8 @@ func MakeImageFromSlicesCustomThreshold(imageName string,
 
     //for each bucket, look for a match
     outputImg := image.NewRGBA(bounds)
-    for y :=0; y < ysplits; y++{
-        for x := 0; x <xsplits; x++{
+    for y :=0; y < yInputsplits; y++{
+        for x := 0; x <xInputsplits; x++{
 
             redAvg := inputRGBBucketAvg[x][y][0]
             greenAvg := inputRGBBucketAvg[x][y][1]
