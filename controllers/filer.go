@@ -88,12 +88,14 @@ func MixedImages(w http.ResponseWriter, r *http.Request) {
 
   js, err := json.Marshal(profile2)
   if err != nil {
+      fmt.Printf("error getting mixes")
     http.Error(w, err.Error(), http.StatusInternalServerError)
     return
   }
 
   w.Header().Set("Content-Type", "application/json")
   w.Write(js)
+  
 }
 
 

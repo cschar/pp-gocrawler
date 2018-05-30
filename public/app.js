@@ -35,7 +35,7 @@
     }
 
     function buttonMixClick(){
-        console.log("click")
+        console.log("getting mixes")
         getJSON("/mixed")
             .then(onMixedResponse)
             .catch(onMixedResponse)
@@ -45,8 +45,21 @@
         if (response.status == 200){
             mixes.innerHTML = ""
             response.data.Files.map(function (x){
-                mixes.innerHTML += "<li> mix <a href=" + "'output/"+ x +"'" + ">" + x + "</a>"
-                mixes.innerHTML += " </li>"
+                var li_element = document.createElement('li')
+                var show_button = document.createElement('button')
+                show_button.addEventListener('click', function(){
+                    lastMix.innerHTML = "<img class='mixPic' src='output/" + x + "'>"
+                })
+                show_button.innerHTML = "show"
+
+                var p_text = document.createElement('div')
+                p_text.innerHTML = "<a href=" + "'output/"+ x +"'" + ">" + x + "</a>"
+                p_text.prepend(show_button)
+                
+
+                li_element.appendChild(p_text)
+                mixes.appendChild(li_element)
+                
             })
         }else{
             alert('error with mixed images')
@@ -74,7 +87,7 @@
         var className;
         if (response.status !== 400){
             className = "sucess"
-            lastMix.innerHTML = "<img height=500 width='500' src='" + response.data + "'>"
+            lastMix.innerHTML = "<img class='mixPic' src='" + response.data + "'>"
             divNotification.innerHTML = "File uploaded successfully : " + response.data;
         }else{
             className = "error"

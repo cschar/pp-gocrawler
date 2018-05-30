@@ -17,44 +17,47 @@ minimum-scale=1.0">
         <canvas class="particle-background"></canvas>
 
 <div class="container">
-    
-    
-  <div>
-
-     <form action="/upload" method="post" enctype="multipart/form-data" class="uploadForm">
-          <input class="uploadForm__input" type="file" name="file" id="inputFile" accept="image/*">
-          <label class="uploadForm__label" for="inputFile">
-              <i class="fa fa-upload uploadForm__icon"></i> Select a  .jpg file
-          </label>
-      </form>
-    </div>
+      
   <div class="notification" id="alert"></div>
 
   <div class="row">
      
-    <div id="lastMix" class="jumbotron">
-        
+    <div class='col-sm-6'>
+        <div id="lastMix" class="jumbotron ">
+            
+        </div>
     </div>
 
-    <div >
+    <div class='col-sm-6'>
+            <div>
+
+                    <form action="/upload" method="post" enctype="multipart/form-data" class="uploadForm">
+                         <input class="uploadForm__input" type="file" name="file" id="inputFile" accept="image/*">
+                         <label class="uploadForm__label" for="inputFile">
+                             <i class="fa fa-upload uploadForm__icon"></i> Select a  .jpg file
+                         </label>
+                     </form>
+                   </div>
+                 
         <div>
             <button id="button-mix"> Get mixes  </button>
         </div>
         <ul id="mixes">
 
         </ul>
-    </div>
+    
 
-    <div >
             <div>
                 <button id="button-input"> Sample inputs :  </button>
             </div>
             <div id="inputs">
     
             </div>
+    
     </div>
 
   </div>
+
   <div>
     <a href="/agg"> new agg </a>
   </div>
@@ -68,11 +71,11 @@ minimum-scale=1.0">
     <!-- particle background -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/particlesjs/2.2.0/particles.min.js"></script>
     <script>
-        // var particles = Particles.init({
-        // selector: '.particle-background',
-        // color: ['#DA0463', '#404B69', '#DBEDF3'],
-        // connectParticles: true
-        // });
+        var particles = Particles.init({
+        selector: '.particle-background',
+        color: ['#DA0463', '#404B69', '#DBEDF3'],
+        connectParticles: true
+        });
 
     </script>
 

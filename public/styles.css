@@ -12,6 +12,7 @@ body {
 
 .container {
     background-color: #FFF;
+    /* min-width:600px; */
 }
 
 body,
@@ -33,10 +34,16 @@ body,
     z-index: -1;
   }
 
+.mixPic {
+    width: 100%
+}
 
+#lastMix{
+ 
+}
 .uploadForm {
-    width: 600px;
-    max-width: 600px;
+    /* width: 600px;
+    max-width: 600px; */
     height: 200px;
     flex-direction: column;
     border: 2px dashed gray;
